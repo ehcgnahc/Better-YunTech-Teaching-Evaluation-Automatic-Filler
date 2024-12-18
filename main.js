@@ -34,7 +34,6 @@ async function fillForm(page, url){
     console.log(url, "filled");
 
     page.once('dialog', async dialog => { // 提交提示確認
-        console.log(dialog.message());
         await dialog.accept();
     });
     await page.click("#ctl00_MainContent_Submit"); // 送出
@@ -101,7 +100,6 @@ async function main() {
         await page.type("#pLoginName", Username); // 輸入帳號
         await page.type("#pLoginPassword", Password); // 輸入密碼
         await page.type("#ValidationCode", Captcha); // 輸入驗證碼
-        // await page.screenshot({path: 'example.png'});
         await page.click("#LoginSubmitBtn"); // 登入
 
         try {
@@ -149,14 +147,10 @@ async function main() {
 
                 console.log(Questionnaire);
                 
-                for(let i=0;i<2;i++){
+                for(let i=0;i<1;i++){
                     console.log("filling form", Questionnaire[i]);
                     await fillForm(page, Questionnaire[i]);
                 }
-
-                page.goto("https://webapp.yuntech.edu.tw/WebNewCAS/TeachSurvey/Survey/Default.aspx?ShowInfoMsg=1");
-                await page.waitForSelector('#ctl00_MainContent_CancelButton', { visible: true });
-                await page.click("#ctl00_MainContent_CancelButton")
             } else if (result === null) {
                 console.log('login timeout');
                 mainWindow.webContents.send('login-error', "登入超時");
