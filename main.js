@@ -19,6 +19,27 @@ function createWindow() {
     mainWindow.loadFile(path.join(__dirname, 'index.html'));
 }
 
+async function fillForm(page, url){
+    await page.goto(url);
+    await page.waitForSelector("#ctl00_MainContent_Submit", { visible: true });
+    await page.evaluate(() => {
+        const radios = document.querySelectorAll('input[type="radio"][value="4"]');
+        radios.forEach(radio => radio.click());
+    });
+    await page.evaluate(() => {
+        const radios = document.querySelectorAll('input[type="radio"][value="5"]');
+        radios.forEach(radio => radio.click());
+    });
+
+    console.log(url, "filled");
+
+    page.once('dialog', async dialog => { // 提交提示確認
+        console.log(dialog.message());
+        await dialog.accept();
+    });
+    await page.click("#ctl00_MainContent_Submit"); // 送出
+}
+
 async function main() {
     const browser = await puppeteer.launch({
         channel: 'chrome', // 自動尋找 Chrome.exe
@@ -32,7 +53,7 @@ async function main() {
     await page.click('a[href="/WebNewCAS/login.aspx"]'); // 點擊登入
     await page.waitForSelector("#pLoginName", { visible: true });
     await page.waitForSelector("#pLoginPassword", { visible: true });
-    await page.waitForSelector("#NumberCaptcha");
+    await page.waitForSelector("#NumberCaptcha", { visible: true });
 
     const CaptchaSrc = await page.evaluate(() => {
         const img = document.querySelector("#NumberCaptcha");
@@ -42,9 +63,9 @@ async function main() {
     createWindow();
 
     mainWindow.webContents.on('did-finish-load', () => {
-        if(CaptchaSrc && CaptchaSrc.startsWith("data:image/png;base64,")){
+        if (CaptchaSrc && CaptchaSrc.startsWith("data:image/png;base64,")) {
             mainWindow.webContents.send('Captcha', CaptchaSrc);
-        }else{
+        } else {
             console.log("CAPTCHA Not Found");
             mainWindow.webContents.send('Captcha', null);
         }
@@ -66,9 +87,9 @@ async function main() {
             const img = document.querySelector("#NumberCaptcha");
             return img?.src;
         });
-        if(CaptchaSrc && CaptchaSrc.startsWith("data:image/png;base64,")){
+        if (CaptchaSrc && CaptchaSrc.startsWith("data:image/png;base64,")) {
             mainWindow.webContents.send('Captcha', CaptchaSrc);
-        }else{
+        } else {
             console.log("CAPTCHA Not Found");
             mainWindow.webContents.send('Captcha', null);
         }
@@ -83,9 +104,9 @@ async function main() {
         // await page.screenshot({path: 'example.png'});
         await page.click("#LoginSubmitBtn"); // 登入
 
-        try{
-            const Toast = page.waitForSelector("#toast-container", { visible: true, timeout:10000 }).catch(() => null); // 等待訊息框出現
-            
+        try {
+            const Toast = page.waitForSelector("#toast-container", { visible: true, timeout: 10000 }).catch(() => null); // 等待訊息框出現
+
             const result = await Promise.race([
                 Toast, // 等待錯誤訊息
                 new Promise(async (resolve) => {
@@ -99,16 +120,47 @@ async function main() {
                     }
                     resolve(null); // 超時
                 }),
-            ]);        
+            ]);
 
-            if(result === "success"){
+            if (result === "success") {
                 console.log('login success');
                 mainWindow.webContents.send('login-success');
-            }else if(result === null){
+                await page.goto("https://webapp.yuntech.edu.tw/WebNewCAS/TeachSurvey/Survey/Default.aspx?ShowInfoMsg=1");
+                await page.waitForSelector('#ctl00_MainContent_CancelButton', { visible: true });
+                await page.click("#ctl00_MainContent_CancelButton")
+
+                // const Course_Serial = await page.evaluate(() => { // 課號
+                //     const Course = Array.from(document.querySelectorAll("a[id^='ctl00_MainContent_StudCour_GridView_']"));
+                //     return Course
+                //         .filter(course => course.id.endsWith("Questionnaire"))
+                //         .map(course => ({
+                //             id: course.id,
+                //             hrefValue: course.href,
+                //             extractedValue: course.href.match(/current_subj=(\d+)/)?.[1] || null,
+                //         }));
+                // });
+
+                const Questionnaire = await page.evaluate(() => { // 未填的表單
+                    const link = Array.from(document.querySelectorAll("a[id^='ctl00_MainContent_StudCour_GridView_']"));
+                    return link
+                        .filter(link => link.innerText.includes("填寫問卷"))
+                        .map(link => link.href);
+                });
+
+                console.log(Questionnaire);
+                
+                for(let i=0;i<2;i++){
+                    console.log("filling form", Questionnaire[i]);
+                    await fillForm(page, Questionnaire[i]);
+                }
+
+                page.goto("https://webapp.yuntech.edu.tw/WebNewCAS/TeachSurvey/Survey/Default.aspx?ShowInfoMsg=1");
+                await page.waitForSelector('#ctl00_MainContent_CancelButton', { visible: true });
+                await page.click("#ctl00_MainContent_CancelButton")
+            } else if (result === null) {
                 console.log('login timeout');
                 mainWindow.webContents.send('login-error', "登入超時");
-            }else if(result){
-                console.log('login failed');
+            } else if (result) {
                 const message = await page.evaluate(() => {
                     const toast = document.querySelector("#toast-container .toast-message");
                     return toast?.innerText;
@@ -116,7 +168,7 @@ async function main() {
                 console.log('login failed', message);
                 mainWindow.webContents.send('login-failed', message);
             }
-        }catch(error){
+        } catch (error) {
             console.error(error);
             mainWindow.webContents.send('login-error', error.message);
         }
@@ -127,7 +179,7 @@ async function main() {
 
     ipcMain.on('Refocus-Window', () => {
         console.log("Refocus-Window received");
-        if(mainWindow){
+        if (mainWindow) {
             mainWindow.blur();
             setTimeout(() => {
                 mainWindow.focus();
@@ -137,7 +189,7 @@ async function main() {
 
     ipcMain.on('Close-Window', () => {
         console.log("Close-Window received");
-        if(mainWindow){
+        if (mainWindow) {
             mainWindow.hide();
         }
     });
