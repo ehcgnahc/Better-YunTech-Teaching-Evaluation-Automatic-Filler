@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>登入資訊</title>
+    <style>
+        #reloadCaptcha {
+            background: none;
+            border: none;
+            cursor: pointer;
+            margin-left: 10px;
+        }
+        #reloadCaptcha img {
+            transform: translateY(-17px);
+            width: 20px;
+            height: 20px;
+        }
+        #captchaImage {
+            border: 1px solid #000;
+        }
+    </style>
+</head>
+
+<body>
+    <h2>請輸入登入資訊</h2>
+    <label>學號</label>
+    <input type="text" id="Username"><br><br>
+    <label>密碼</label>
+    <input type="Password" id="Password"><br><br>
+    <label>驗證碼</label>
+    <input type="text" id="Captcha" maxlength="4"><br><br>
+    <img id="CaptchaImg" src="">
+    <button id="reloadCaptcha" title="重新載入驗證碼">
+        <img src="reload.png">
+    </button><br><br>
+    <button id="submit">登入</button>
+
+    <script>
+        const { ipcRenderer } = require('electron');
+
+        ipcRenderer.on('Captcha', (event, CaptchaSrc) => {
+            const CaptchaImg = document.getElementById('CaptchaImg');
+            CaptchaImg.src = CaptchaSrc;
+        });
+        
+        ipcRenderer.on('login-failed', (event, message) => {
+            document.getElementById('Password').value = '';
+            document.getElementById('Captcha').value = '';
+            ipcRenderer.send('clearUsername');
+            ipcRenderer.send('reloadCaptcha');
+            setTimeout(() => {
+                ipcRenderer.send('Refocus-Window');
+            }, 100);
+            alert(message);
+        });
+
+        ipcRenderer.on('login-success', () => {
+            console.log('login-success event received');
+            alert('登入成功');
+            setTimeout(() => {
+                ipcRenderer.send('Close-Window');
+            }, 100);
+        });
+
+        document.getElementById('reloadCaptcha').addEventListener('click', () => {
+            ipcRenderer.send('reloadCaptcha');
+        });
+
+        document.getElementById('submit').addEventListener('click', () => {
+            const Username = document.getElementById('Username').value;
+            const Password = document.getElementById('Password').value;
+            const Captcha = document.getElementById('Captcha').value;
+
+            ipcRenderer.send('login', { Username, Password, Captcha });
+        });
+    </script>
+</body>
+
+</html>

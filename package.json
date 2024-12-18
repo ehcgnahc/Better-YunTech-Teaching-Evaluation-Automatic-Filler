@@ -1,0 +1,21 @@
+{
+  "name": "js-web-crawler",
+  "version": "1.0.0",
+  "description": "A web crawler tool",
+  "main": "main.js",
+  "bin": "./main.js",
+  "scripts": {
+    "start": "electron ."
+  },
+  "dependencies": {
+    "electron": "^33.2.1",
+    "glob": "^11.0.0",
+    "puppeteer": "^23.10.4"
+  },
+  "type": "module",
+  "devDependencies": {
+    "@babel/cli": "^7.26.4",
+    "@babel/preset-env": "^7.26.0",
+    "electron-builder": "^25.1.8"
+  }
+}
