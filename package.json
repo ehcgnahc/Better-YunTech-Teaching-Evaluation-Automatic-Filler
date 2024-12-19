@@ -1,7 +1,7 @@
 {
   "name": "YunTechTeachingFormFiller",
-  "version": "0.0.3",
-  "description": "A YunTech web crawler tool",
+  "version": "0.0.6",
+  "description": "一個用於自動填寫雲科期末教學意見調查的工具",
   "main": "main.js",
   "scripts": {
     "start": "electron .",

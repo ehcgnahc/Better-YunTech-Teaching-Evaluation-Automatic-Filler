@@ -122,17 +122,41 @@
             }, 100);
         });
 
+        ipcRenderer.on('login-error', (event, message) => {
+            document.getElementById('Password').value = '';
+            document.getElementById('Captcha').value = '';
+            ipcRenderer.send('reloadCaptcha');
+            setTimeout(() => {
+                ipcRenderer.send('Refocus-Window');
+            }, 100);
+            alert("登入出現錯誤：" + message);
+        });
+
         document.getElementById('reloadCaptcha').addEventListener('click', () => {
             ipcRenderer.send('reloadCaptcha');
         });
 
         document.getElementById('submit').addEventListener('click', () => {
+            SubmitLogin();
+        });
+
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Enter') {
+                SubmitLogin();
+            }
+        });
+
+        function SubmitLogin(){
             const Username = document.getElementById('Username').value;
             const Password = document.getElementById('Password').value;
             const Captcha = document.getElementById('Captcha').value;
-
+            if (Username === '' || Password === '' || Captcha === '') {
+                alert('請輸入完整資訊');
+                ipcRenderer.send('Refocus-Window');
+                return;
+            }
             ipcRenderer.send('login', { Username, Password, Captcha });
-        });
+        }
     </script>
 </body>
 

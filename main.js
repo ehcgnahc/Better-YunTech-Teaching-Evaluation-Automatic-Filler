@@ -5,7 +5,27 @@ const path = require('path');
 
 // const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-let mainWindow;
+let mainWindow; // electron
+let browser; // puppeteer
+
+async function cleanupResources() {
+    if(browser){
+        try{
+            await browser.close();
+            browser = null;
+        }catch(error){
+            console.error("Error while closing browser:", error);
+        }
+    }
+    if(mainWindow){
+        try{
+            await mainWindow.close();
+            mainWindow = null;
+        }catch(error){
+            console.error("Error while closing mainWindow:", error);
+        }
+    }
+}
 
 // 處理未知的錯誤
 process.on('uncaughtException', (error) => {
@@ -79,7 +99,6 @@ async function main() {
     const { getEdgePath } = await import('edge-paths');
     const chromePaths = require('chrome-paths');
     const fs = require('fs');
-    let browser;
     if(chromePaths.chromium && fs.existsSync(chromePaths.chromium)){
         browser = await puppeteer.launch({
             executablePath: chromePaths.chromium, // 使用 Chromium
@@ -203,7 +222,7 @@ async function main() {
                         await client.send('Network.clearBrowserCookies');
                         await client.send('Network.clearBrowserCache');
                         await browser.close();
-                        app.quit();
+                        setTimeout(() => app.quit(), 1000);
                         resolve(true);
                     });
                 });
@@ -212,7 +231,7 @@ async function main() {
                     setTimeout(() => {
                         console.log('Dialog handling timeout.');
                         resolve(false);
-                    }, 1000); // 超時設為 5 秒
+                    }, 1000);
                 });
 
                 await page.goto("https://webapp.yuntech.edu.tw/WebNewCAS/TeachSurvey/Survey/Default.aspx?ShowInfoMsg=1");
