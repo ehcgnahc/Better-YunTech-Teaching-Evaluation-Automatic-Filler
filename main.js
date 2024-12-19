@@ -1,25 +1,27 @@
-import { app, BrowserWindow, ipcMain } from 'electron';
-import { fileURLToPath } from 'url';
-import puppeteer from 'puppeteer-core'; //ESM
-import path from 'path';
+const { app, BrowserWindow, ipcMain } = require('electron');
+// const { fileURLToPath } = require('url');
+const puppeteer = require('puppeteer-core');
+const path = require('path');
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
+// const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 let mainWindow;
+let finish = false;
 
 function createWindow() {
     mainWindow = new BrowserWindow({
         width: 400,
-        height: 400,
+        height: 600,
         webPreferences: {
+            preload: path.join(__dirname, 'preload.js'),
             nodeIntegration: true,
-            contextIsolation: false,
+            contextIsolation: true
         }
     })
     mainWindow.loadFile(path.join(__dirname, 'index.html'));
 }
 
-async function fillForm(page, url){
+async function fillForm(page, url) {
     await page.goto(url);
     await page.waitForSelector("#ctl00_MainContent_Submit", { visible: true });
     await page.evaluate(() => {
@@ -33,20 +35,40 @@ async function fillForm(page, url){
 
     console.log(url, "filled");
 
-    page.once('dialog', async dialog => { // 提交提示確認
+    page.once('dialog', async dialog => { // 提示
         await dialog.accept();
     });
     await page.click("#ctl00_MainContent_Submit"); // 送出
 }
 
 async function main() {
-    const browser = await puppeteer.launch({
-        channel: 'chrome', // 自動尋找 Chrome.exe
-        headless: false,
-        slowMo: 10,
-        defaultViewport: null,
-    });
-
+    const { getEdgePath } = await import('edge-paths');
+    const edgePath = getEdgePath();
+    let browser;
+    if (edgePath) {
+        console.log(edgePath);
+        browser = await puppeteer.launch({
+            executablePath: edgePath, // 使用 edge.exe
+            headless: false,
+            slowMo: 5,
+            defaultViewport: null,
+        });
+    } else {
+        console.log("Edge not found");
+        try{
+            browser = await puppeteer.launch({
+                channel: 'chrome', // 自動尋找 Chrome.exe
+                headless: false,
+                slowMo: 5,
+                defaultViewport: null,
+            });
+        }catch(error){
+            console.log(`Please install one of the following browsers to proceed:
+                        - Microsoft Edge: https://www.microsoft.com/edge
+                        - Google Chrome: https://www.google.com/chrome`);
+            app.quit();
+        }
+    }
     const page = await browser.newPage(); // 開啟分頁
     await page.goto("https://webapp.yuntech.edu.tw/WebNewCAS/default.aspx"); // 前往網址
     await page.click('a[href="/WebNewCAS/login.aspx"]'); // 點擊登入
@@ -123,34 +145,69 @@ async function main() {
             if (result === "success") {
                 console.log('login success');
                 mainWindow.webContents.send('login-success');
-                await page.goto("https://webapp.yuntech.edu.tw/WebNewCAS/TeachSurvey/Survey/Default.aspx?ShowInfoMsg=1");
-                await page.waitForSelector('#ctl00_MainContent_CancelButton', { visible: true });
-                await page.click("#ctl00_MainContent_CancelButton")
 
-                // const Course_Serial = await page.evaluate(() => { // 課號
-                //     const Course = Array.from(document.querySelectorAll("a[id^='ctl00_MainContent_StudCour_GridView_']"));
-                //     return Course
-                //         .filter(course => course.id.endsWith("Questionnaire"))
-                //         .map(course => ({
-                //             id: course.id,
-                //             hrefValue: course.href,
-                //             extractedValue: course.href.match(/current_subj=(\d+)/)?.[1] || null,
-                //         }));
-                // });
+                let dialogHandled = false;
 
-                const Questionnaire = await page.evaluate(() => { // 未填的表單
-                    const link = Array.from(document.querySelectorAll("a[id^='ctl00_MainContent_StudCour_GridView_']"));
-                    return link
-                        .filter(link => link.innerText.includes("填寫問卷"))
-                        .map(link => link.href);
+                const dialogPromise = new Promise((resolve) => {
+                    page.once('dialog', async (dialog) => {
+                        if(dialogHandled) return;
+                        dialogHandled = true;
+                        await dialog.accept();
+                        console.log('All form already Filled');
+                        const client = await page.createCDPSession();
+                        await client.send('Network.clearBrowserCookies');
+                        await client.send('Network.clearBrowserCache');
+                        await browser.close();
+                        app.quit();
+                        finish = true;
+                        resolve(true);
+                    });
                 });
 
-                console.log(Questionnaire);
-                
-                for(let i=0;i<1;i++){
-                    console.log("filling form", Questionnaire[i]);
-                    await fillForm(page, Questionnaire[i]);
+                const timeoutPromise = new Promise((resolve) => {
+                    setTimeout(() => {
+                        console.log('Dialog handling timeout.');
+                        resolve(false);
+                    }, 1000); // 超時設為 5 秒
+                });
+
+                await page.goto("https://webapp.yuntech.edu.tw/WebNewCAS/TeachSurvey/Survey/Default.aspx?ShowInfoMsg=1");
+                const dialogResult = await Promise.race([dialogPromise, timeoutPromise]);
+                // console.log("finish", finish);
+                if (!dialogResult){
+                    await page.waitForSelector('#ctl00_MainContent_CancelButton', { visible: true });
+                    await page.click("#ctl00_MainContent_CancelButton")
+
+                    // const Course_Serial = await page.evaluate(() => { // 課號
+                    //     const Course = Array.from(document.querySelectorAll("a[id^='ctl00_MainContent_StudCour_GridView_']"));
+                    //     return Course
+                    //         .filter(course => course.id.endsWith("Questionnaire"))
+                    //         .map(course => ({
+                    //             id: course.id,
+                    //             hrefValue: course.href,
+                    //             extractedValue: course.href.match(/current_subj=(\d+)/)?.[1] || null,
+                    //         }));
+                    // });
+
+                    const Questionnaire = await page.evaluate(() => { // 未填的表單
+                        const link = Array.from(document.querySelectorAll("a[id^='ctl00_MainContent_StudCour_GridView_']"));
+                        return link
+                            .filter(link => link.innerText.includes("填寫問卷"))
+                            .map(link => link.href);
+                    });
+
+                    console.log(Questionnaire);
+
+                    for (let i = 0; i < 1; i++) {
+                        console.log("filling form", Questionnaire[i]);
+                        await fillForm(page, Questionnaire[i]);
+                    }
                 }
+                const client = await page.createCDPSession();
+                await client.send('Network.clearBrowserCookies');
+                await client.send('Network.clearBrowserCache');
+                await browser.close();
+                app.quit();
             } else if (result === null) {
                 console.log('login timeout');
                 mainWindow.webContents.send('login-error', "登入超時");

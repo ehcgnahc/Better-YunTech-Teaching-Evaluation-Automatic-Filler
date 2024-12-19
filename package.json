@@ -8,11 +8,12 @@
     "start": "electron ."
   },
   "dependencies": {
+    "edge-paths": "^3.0.5",
     "electron": "^33.2.1",
     "glob": "^11.0.0",
     "puppeteer": "^23.10.4"
   },
-  "type": "module",
+  "type": "commonjs",
   "devDependencies": {
     "@babel/cli": "^7.26.4",
     "@babel/preset-env": "^7.26.0",

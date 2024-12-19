@@ -5,45 +5,104 @@
     <meta charset="UTF-8">
     <title>登入資訊</title>
     <style>
+        input {
+            width: 240px;
+            height: 30px;
+            border: 2px solid rgba(50, 50, 50, 0.8);
+            border-radius: 10px;
+            text-indent: 8px;
+            background-color: #fff;
+            transition: all 0.s ease;
+        }
+
         #reloadCaptcha {
             background: none;
             border: none;
             cursor: pointer;
             margin-left: 10px;
         }
+
         #reloadCaptcha img {
-            transform: translateY(-17px);
             width: 20px;
             height: 20px;
         }
+
         #captchaImage {
             border: 1px solid #000;
+        }
+
+        #submit {
+            width: 240px;
+            height: 30px;
+            border-radius: 10px;
+            background-color: #fff;
+            color: #000;
+            cursor: pointer;
+            transition: all 0.8s ease;
+            font-size: 16px;
+        }
+
+        #submit:hover {
+            background-color: #000;
+            color: #fff;
+        }
+
+        .container {
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            gap: 16px;
+            position: relative;
+        }
+
+        .captcha-container {
+            position: relative;
+            display: inline-block;
+            margin-top: 24px;
+        }
+
+        .captcha-container img {
+            width: 120px;
+            height: 56px;
+        }
+
+        .verification-code-reload {
+            position: absolute;
+            top: 70%;
+            left: 150px;
         }
     </style>
 </head>
 
 <body>
-    <h2>請輸入登入資訊</h2>
-    <label>學號</label>
-    <input type="text" id="Username"><br><br>
-    <label>密碼</label>
-    <input type="Password" id="Password"><br><br>
-    <label>驗證碼</label>
-    <input type="text" id="Captcha" maxlength="4"><br><br>
-    <img id="CaptchaImg" src="">
-    <button id="reloadCaptcha" title="重新載入驗證碼">
-        <img src="reload.png">
-    </button><br><br>
-    <button id="submit">登入</button>
+    <div class="container">
+        <h2>請輸入登入資訊</h2>
+        <label>學號</label>
+        <input type="text" id="Username">
+        <label>密碼</label>
+        <input type="Password" id="Password">
+        <label>驗證碼</label>
+        <input type="text" id="Captcha" maxlength="4">
+        <div class="captcha-container">
+            <img id="CaptchaImg">
+            <button id="reloadCaptcha" title="重新載入驗證碼" class="verification-code-reload">
+                <img src="reload.png">
+            </button>
+        </div>
+        <button id="submit">登入</button>
+    </div>
 
     <script>
-        const { ipcRenderer } = require('electron');
+        // window.electronAPI.send('channel', { key: 'value' });
+        const ipcRenderer = window.electronAPI;
 
         ipcRenderer.on('Captcha', (event, CaptchaSrc) => {
             const CaptchaImg = document.getElementById('CaptchaImg');
             CaptchaImg.src = CaptchaSrc;
         });
-        
+
         ipcRenderer.on('login-failed', (event, message) => {
             document.getElementById('Password').value = '';
             document.getElementById('Captcha').value = '';
