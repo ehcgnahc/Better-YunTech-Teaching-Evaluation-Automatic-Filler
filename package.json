@@ -1,22 +1,23 @@
 {
-  "name": "js-web-crawler",
-  "version": "1.0.0",
-  "description": "A web crawler tool",
+  "name": "YunTechTeachingFormFiller",
+  "version": "0.0.3",
+  "description": "A YunTech web crawler tool",
   "main": "main.js",
-  "bin": "./main.js",
   "scripts": {
-    "start": "electron ."
+    "start": "electron .",
+    "build": "node build.js"
   },
   "dependencies": {
+    "chrome-paths": "^1.0.1",
     "edge-paths": "^3.0.5",
-    "electron": "^33.2.1",
     "glob": "^11.0.0",
-    "puppeteer": "^23.10.4"
+    "puppeteer-core": "^23.11.1"
   },
   "type": "commonjs",
   "devDependencies": {
     "@babel/cli": "^7.26.4",
     "@babel/preset-env": "^7.26.0",
+    "electron": "^33.2.1",
     "electron-builder": "^25.1.8"
   }
 }

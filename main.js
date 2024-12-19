@@ -43,30 +43,45 @@ async function fillForm(page, url) {
 
 async function main() {
     const { getEdgePath } = await import('edge-paths');
-    const edgePath = getEdgePath();
+    const chromePaths = require('chrome-paths');
     let browser;
-    if (edgePath) {
-        console.log(edgePath);
+    if(chromePaths.chromium){
         browser = await puppeteer.launch({
-            executablePath: edgePath, // 使用 edge.exe
-            headless: false,
+            executablePath: chromePaths.chromium, // 使用 Chromium
+            headless: true,
             slowMo: 5,
             defaultViewport: null,
         });
-    } else {
-        console.log("Edge not found");
+    }else{
+        console.error("Chromium not found");
         try{
             browser = await puppeteer.launch({
-                channel: 'chrome', // 自動尋找 Chrome.exe
-                headless: false,
+                channel: 'chrome', // 使用 Chrome
+                headless: true,
                 slowMo: 5,
                 defaultViewport: null,
             });
-        }catch(error){
-            console.log(`Please install one of the following browsers to proceed:
-                        - Microsoft Edge: https://www.microsoft.com/edge
-                        - Google Chrome: https://www.google.com/chrome`);
-            app.quit();
+        }catch(chromeError){
+            console.error("Chrome not found");
+            try{
+                const edgePath = getEdgePath();
+                if(edgePath){
+                    console.log(edgePath);
+                    browser = await puppeteer.launch({
+                        executablePath: edgePath, // 使用 edge
+                        headless: true,
+                        slowMo: 5,
+                        defaultViewport: null,
+                    });
+                }else{
+                    throw new Error("Edge not found");
+                }
+            }catch(edgeError){
+                console.error(`Please install one of the following browsers to proceed:
+                    - Microsoft Edge: https://www.microsoft.com/edge
+                    - Google Chrome: https://www.google.com/chrome`);
+                app.quit();
+            }
         }
     }
     const page = await browser.newPage(); // 開啟分頁
@@ -145,13 +160,8 @@ async function main() {
             if (result === "success") {
                 console.log('login success');
                 mainWindow.webContents.send('login-success');
-
-                let dialogHandled = false;
-
                 const dialogPromise = new Promise((resolve) => {
                     page.once('dialog', async (dialog) => {
-                        if(dialogHandled) return;
-                        dialogHandled = true;
                         await dialog.accept();
                         console.log('All form already Filled');
                         const client = await page.createCDPSession();
@@ -198,7 +208,7 @@ async function main() {
 
                     console.log(Questionnaire);
 
-                    for (let i = 0; i < 1; i++) {
+                    for (let i = 0; i < Questionnaire.length(); i++) {
                         console.log("filling form", Questionnaire[i]);
                         await fillForm(page, Questionnaire[i]);
                     }
