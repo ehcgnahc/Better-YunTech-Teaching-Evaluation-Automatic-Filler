@@ -6,7 +6,41 @@ const path = require('path');
 // const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 let mainWindow;
-let finish = false;
+
+// 處理未知的錯誤
+process.on('uncaughtException', (error) => {
+    console.error("Uncaught exception:", error);
+    cleanupResources().then(() => process.exit(1));
+});
+
+process.on('unhandledRejection', (reason) => {
+    console.error("Unhandled rejection:", reason);
+    cleanupResources().then(() => process.exit(1));
+});
+
+// 釋放資源
+app.on('before-quit', async () => {
+    console.log("Application is quitting...");
+    await cleanupResources();
+});
+
+app.on('window-all-closed', () => {
+    if (process.platform !== 'darwin') {
+        cleanupResources().then(() => app.quit());
+    }
+});
+
+const OnlyOne = app.requestSingleInstanceLock();
+if(OnlyOne){
+    app.on('second-instance', () => {
+        if (mainWindow) {
+            if (mainWindow.isMinimized()) mainWindow.restore();
+            mainWindow.focus();
+        }
+    });
+}else{
+    app.quit();
+}
 
 function createWindow() {
     mainWindow = new BrowserWindow({
@@ -44,8 +78,9 @@ async function fillForm(page, url) {
 async function main() {
     const { getEdgePath } = await import('edge-paths');
     const chromePaths = require('chrome-paths');
+    const fs = require('fs');
     let browser;
-    if(chromePaths.chromium){
+    if(chromePaths.chromium && fs.existsSync(chromePaths.chromium)){
         browser = await puppeteer.launch({
             executablePath: chromePaths.chromium, // 使用 Chromium
             headless: true,
@@ -169,7 +204,6 @@ async function main() {
                         await client.send('Network.clearBrowserCache');
                         await browser.close();
                         app.quit();
-                        finish = true;
                         resolve(true);
                     });
                 });
@@ -183,7 +217,6 @@ async function main() {
 
                 await page.goto("https://webapp.yuntech.edu.tw/WebNewCAS/TeachSurvey/Survey/Default.aspx?ShowInfoMsg=1");
                 const dialogResult = await Promise.race([dialogPromise, timeoutPromise]);
-                // console.log("finish", finish);
                 if (!dialogResult){
                     await page.waitForSelector('#ctl00_MainContent_CancelButton', { visible: true });
                     await page.click("#ctl00_MainContent_CancelButton")
@@ -208,7 +241,7 @@ async function main() {
 
                     console.log(Questionnaire);
 
-                    for (let i = 0; i < Questionnaire.length(); i++) {
+                    for (let i = 0; i < Questionnaire.length; i++) {
                         console.log("filling form", Questionnaire[i]);
                         await fillForm(page, Questionnaire[i]);
                     }
